@@ -4,11 +4,13 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Dashboard from './pages/dashboard/Dashboard'
 import AttendanceSheet from './pages/dashboard/AttendanceSheet'
+import { Toaster } from 'react-hot-toast'
 
 const App = () => {
   return (
     <>
     <BrowserRouter>
+      <Toaster />
       <Routes>
         <Route path='/' element={<Home />}/>
         <Route path='/login' element={<Login />}/>

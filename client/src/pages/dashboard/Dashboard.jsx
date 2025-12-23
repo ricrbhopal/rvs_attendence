@@ -4,15 +4,20 @@ import axios from "../../config/api.jsx";
 import { toast } from "react-hot-toast";
 import logo from "../../assets/image.png";
 import AddTeacherModal from "../../components/AddTeacherModal";
+import EditTeacherModal from "../../components/EditTeacherModal";
+import { useConfirmation } from "../../hooks/useConfirmation";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { showConfirmation } = useConfirmation();
 
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState(null);
 
   // Fetch teachers from backend
   useEffect(() => {
@@ -58,25 +63,74 @@ const Dashboard = () => {
         sessionStorage.removeItem("user");
         navigate("/login");
       } else {
+        toast.error(error?.response?.data?.message || "Failed to add teacher");
+      }
+    }
+  };
+
+  const handleEditTeacher = async (teacherId, teacherData) => {
+    try {
+      const res = await axios.put(
+        `/principal/updateTeacher/${teacherId}`,
+        teacherData
+      );
+      toast.success(res.data.message || "Teacher updated successfully");
+      fetchTeachers(); // Refresh the list
+      setIsEditModalOpen(false);
+      setSelectedTeacher(null);
+    } catch (error) {
+      if (error?.response?.status === 401) {
+        toast.error("Session expired. Please login again");
+        sessionStorage.removeItem("user");
+        navigate("/login");
+      } else {
         toast.error(
-          error?.response?.data?.message || "Failed to add teacher"
+          error?.response?.data?.message || "Failed to update teacher"
         );
       }
     }
   };
 
-  const handleStatusChange = async (teacherId, newStatus) => {
+  const openEditModal = (teacher) => {
+    setSelectedTeacher(teacher);
+    setIsEditModalOpen(true);
+  };
+
+  const handleStatusChange = (
+    teacherId,
+    newStatus,
+    teacherName,
+    currentStatus
+  ) => {
+    // Don't show confirmation if status hasn't changed
+    if (currentStatus === newStatus) return;
+
+    showConfirmation({
+      title: 'Change Teacher Status?',
+      message: (
+        <span>
+          Are you sure you want to change{' '}
+          <span className="font-semibold">{teacherName}'s</span> status to{' '}
+          <span className="font-semibold uppercase">{newStatus}</span>?
+        </span>
+      ),
+      onConfirm: () => confirmStatusChange(teacherId, newStatus),
+      confirmText: 'Continue',
+      type: 'primary',
+      requireDoubleConfirmation: true,
+      secondTitle: 'Final Confirmation',
+      secondMessage: 'This will update the teacher\'s status immediately. Are you absolutely sure?'
+    });
+  };
+
+  const confirmStatusChange = async (teacherId, newStatus) => {
     try {
       const res = await axios.patch(`/principal/updateStatus/${teacherId}`, {
         status: newStatus,
       });
       toast.success(res.data.message);
-      // Update local state
-      setTeachers(
-        teachers.map((teacher) =>
-          teacher._id === teacherId ? { ...teacher, status: newStatus } : teacher
-        )
-      );
+      // Refresh the entire teachers list from backend to ensure UI is in sync
+      await fetchTeachers();
     } catch (error) {
       if (error?.response?.status === 401) {
         toast.error("Session expired. Please login again");
@@ -355,9 +409,18 @@ const Dashboard = () => {
                       <td className="px-6 py-4">
                         <select
                           value={teacher.status}
-                          onChange={(e) =>
-                            handleStatusChange(teacher._id, e.target.value)
-                          }
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+                            // Reset to current status immediately
+                            e.target.value = teacher.status;
+                            // Show confirmation
+                            handleStatusChange(
+                              teacher._id,
+                              newStatus,
+                              teacher.fullname,
+                              teacher.status
+                            );
+                          }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 outline-none transition cursor-pointer ${
                             teacher.status === "active"
                               ? "border-green-500 bg-green-50 text-green-700 hover:bg-green-100"
@@ -394,7 +457,10 @@ const Dashboard = () => {
                             </svg>
                             View
                           </button>
-                          <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                          <button
+                            onClick={() => openEditModal(teacher)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+                          >
                             <svg
                               className="w-4 h-4"
                               fill="none"
@@ -426,6 +492,17 @@ const Dashboard = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddTeacher}
+      />
+
+      {/* Edit Teacher Modal */}
+      <EditTeacherModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedTeacher(null);
+        }}
+        onSubmit={handleEditTeacher}
+        teacher={selectedTeacher}
       />
     </div>
   );
