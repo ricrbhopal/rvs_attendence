@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import slide1 from "../Assets/Slide1.webp";
-import slide2 from "../Assets/Slide2.webp";
-import slide3 from "../Assets/Slide3.webp";
+import slide1 from "../assets/Slide1.webp";
+import slide2 from "../assets/Slide2.webp";
+import slide3 from "../assets/Slide3.webp";
 import Navbar from "./Navbar";
 
 const Home = () => {
