@@ -7,24 +7,36 @@ export const MarkAttendence = async (req, res, next) => {
     
     // Validate required field
     if (!rfid) {
-      const error = new Error("RFID is required");
-      error.statusCode = 400;
-      return next(error);
+      return res.status(400).json({
+        message: "RFID is required",
+        lcd: {
+          line1: "ERROR!",
+          line2: "No RFID Card"
+        }
+      });
     }
 
     // Check if user exists
     const checkUser = await User.findOne({ rfid });
     if (!checkUser) {
-      const error = new Error("User not found");
-      error.statusCode = 404;
-      return next(error);
+      return res.status(404).json({
+        message: "User not found",
+        lcd: {
+          line1: rfid.substring(0, 16),
+          line2: "Not Registered"
+        }
+      });
     }
 
     // Check if user is active
     if (checkUser.status !== "active") {
-      const error = new Error("User is not active");
-      error.statusCode = 403;
-      return next(error);
+      return res.status(403).json({
+        message: "User is not active",
+        lcd: {
+          line1: "Access Denied!",
+          line2: "User Inactive"
+        }
+      });
     }
 
     // Get current date and time
@@ -50,6 +62,10 @@ export const MarkAttendence = async (req, res, next) => {
       
       return res.status(201).json({
         message: "Check-in marked successfully",
+        lcd: {
+          line1: "Welcome!",
+          line2: checkUser.fullname.substring(0, 16)
+        },
         data: {
           type: "checkIn",
           time: currentDateTime,
@@ -64,9 +80,13 @@ export const MarkAttendence = async (req, res, next) => {
     // Record exists - check current state
     if (existingAttendance.checkInTime && existingAttendance.checkOutTime) {
       // Both times exist - not allowed to mark again
-      const error = new Error("Attendance already marked for today");
-      error.statusCode = 400;
-      return next(error);
+      return res.status(400).json({
+        message: "Attendance already marked for today",
+        lcd: {
+          line1: "Already Done!",
+          line2: "Come Tomorrow"
+        }
+      });
     }
 
     if (existingAttendance.checkInTime && !existingAttendance.checkOutTime) {
@@ -76,18 +96,28 @@ export const MarkAttendence = async (req, res, next) => {
       const timeDifference = (currentDateTime - existingAttendance.checkInTime) / (1000 * 60);
       
       if (timeDifference < 15) {
-        const error = new Error(
-          `Check-out not allowed. Minimum 15 minutes required between check-in and check-out. Current difference: ${Math.floor(timeDifference)} minutes`
-        );
-        error.statusCode = 400;
-        return next(error);
+        return res.status(400).json({
+          message: `Check-out not allowed. Minimum 15 minutes required. Current: ${Math.floor(timeDifference)} mins`,
+          lcd: {
+            line1: "Too Early!",
+            line2: `Wait ${15 - Math.floor(timeDifference)} mins`
+          }
+        });
       }
 
       existingAttendance.checkOutTime = currentDateTime;
       await existingAttendance.save();
       
+      const hours = Math.floor(timeDifference / 60);
+      const mins = Math.floor(timeDifference % 60);
+      const durationText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+      
       return res.status(200).json({
         message: "Check-out marked successfully",
+        lcd: {
+          line1: "Goodbye!",
+          line2: durationText.padEnd(16).substring(0, 16)
+        },
         data: {
           type: "checkOut",
           time: currentDateTime,
@@ -108,6 +138,10 @@ export const MarkAttendence = async (req, res, next) => {
     
     return res.status(200).json({
       message: "Check-in marked successfully",
+      lcd: {
+        line1: "Welcome!",
+        line2: checkUser.fullname.substring(0, 16)
+      },
       data: {
         type: "checkIn",
         time: currentDateTime,

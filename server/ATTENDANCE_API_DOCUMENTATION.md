@@ -2,7 +2,7 @@
 
 ## Base URL
 ```
-http://localhost:5000
+https://rvsattendance.ricr.in/api
 ```
 
 ---
@@ -36,7 +36,7 @@ This is the main endpoint for NodeMCU to call when an RFID card is scanned. It a
 
 ### **Request Example**
 ```http
-POST http://localhost:5000/attendence/mark/RFID001
+POST https://rvsattendance.ricr.in/api/attendence/mark/RFID001
 Content-Type: application/json
 ```
 
@@ -46,6 +46,10 @@ Content-Type: application/json
 ```json
 {
   "message": "Check-in marked successfully",
+  "lcd": {
+    "line1": "Welcome!",
+    "line2": "John Doe"
+  },
   "data": {
     "type": "checkIn",
     "time": "2025-12-23T10:30:00.000Z",
@@ -61,6 +65,10 @@ Content-Type: application/json
 ```json
 {
   "message": "Check-out marked successfully",
+  "lcd": {
+    "line1": "Goodbye!",
+    "line2": "8h 15m"
+  },
   "data": {
     "type": "checkOut",
     "time": "2025-12-23T18:45:00.000Z",
@@ -79,35 +87,59 @@ Content-Type: application/json
 #### **RFID Not Provided (400 Bad Request)**
 ```json
 {
-  "message": "RFID is required"
+  "message": "RFID is required",
+  "lcd": {
+    "line1": "ERROR!",
+    "line2": "No RFID Card"
+  }
 }
 ```
 
 #### **User Not Found (404 Not Found)**
 ```json
 {
-  "message": "User not found"
+  "message": "User not found",
+  "lcd": {
+    "line1": "RFID001",
+    "line2": "Not Registered"
+  }
 }
 ```
+
+**Note:** Line 1 displays the scanned RFID number for identification.
 
 #### **User Not Active (403 Forbidden)**
 ```json
 {
-  "message": "User is not active"
+  "message": "User is not active",
+  "lcd": {
+    "line1": "Access Denied!",
+    "line2": "User Inactive"
+  }
 }
 ```
 
 #### **Minimum Time Not Met (400 Bad Request)**
 ```json
 {
-  "message": "Check-out not allowed. Minimum 15 minutes required between check-in and check-out. Current difference: 10 minutes"
+  "message": "Check-out not allowed. Minimum 15 minutes required. Current: 10 mins",
+  "lcd": {
+    "line1": "Too Early!",
+    "line2": "Wait 5 mins"
+  }
 }
 ```
+
+**Note:** Line 2 shows remaining minutes until checkout is allowed.
 
 #### **Already Marked (400 Bad Request)**
 ```json
 {
-  "message": "Attendance already marked for today"
+  "message": "Attendance already marked for today",
+  "lcd": {
+    "line1": "Already Done!",
+    "line2": "Come Tomorrow"
+  }
 }
 ```
 
@@ -116,6 +148,22 @@ Content-Type: application/json
 - User must have "active" status to mark attendance
 - Only one check-in and one check-out allowed per day
 - Date is determined by server time (midnight to midnight)
+
+### **LCD Display Format**
+All responses include an `lcd` object optimized for 16x2 LCD displays:
+- `line1`: First line of text (max 16 characters)
+- `line2`: Second line of text (max 16 characters)
+
+**Success Messages:**
+- Check-In: "Welcome!" + Teacher name
+- Check-Out: "Goodbye!" + Duration
+
+**Error Messages:**
+- No RFID: "ERROR!" + "No RFID Card"
+- Not Registered: RFID number + "Not Registered"
+- User Inactive: "Access Denied!" + "User Inactive"
+- Too Early: "Too Early!" + "Wait X mins"
+- Already Marked: "Already Done!" + "Come Tomorrow"
 
 ---
 
@@ -136,7 +184,7 @@ Retrieve all attendance records for a specific teacher (sorted by most recent fi
 
 ### **Request Example**
 ```http
-GET http://localhost:5000/attendence/view/6756a1b2c3d4e5f6a7b8c9d0
+GET https://rvsattendance.ricr.in/api/attendence/view/6756a1b2c3d4e5f6a7b8c9d0
 ```
 
 ### **Success Response (200 OK)**
@@ -206,7 +254,7 @@ Retrieve a list of all teachers with their IDs, names, and RFID numbers.
 
 ### **Request Example**
 ```http
-GET http://localhost:5000/attendence/allNames
+GET https://rvsattendance.ricr.in/api/attendence/allNames
 ```
 
 ### **Success Response (200 OK)**
@@ -247,9 +295,14 @@ GET http://localhost:5000/attendence/allNames
 | 500         | Internal Server Error                 |
 
 ### **Standard Error Format**
+All error responses now include LCD-friendly display format:
 ```json
 {
-  "message": "Error description here"
+  "message": "Error description here",
+  "lcd": {
+    "line1": "First line text",
+    "line2": "Second line text"
+  }
 }
 ```
 
@@ -260,20 +313,20 @@ GET http://localhost:5000/attendence/allNames
 ### **Using cURL**
 ```bash
 # Test check-in
-curl -X POST http://localhost:5000/attendence/mark/RFID001
+curl -X POST https://rvsattendance.ricr.in/api/attendence/mark/RFID001
 
 # Test check-out (run after 15+ minutes)
-curl -X POST http://localhost:5000/attendence/mark/RFID001
+curl -X POST https://rvsattendance.ricr.in/api/attendence/mark/RFID001
 
 # View attendance
-curl http://localhost:5000/attendence/view/6756a1b2c3d4e5f6a7b8c9d0
+curl https://rvsattendance.ricr.in/api/attendence/view/6756a1b2c3d4e5f6a7b8c9d0
 
 # Get all teachers
-curl http://localhost:5000/attendence/allNames
+curl https://rvsattendance.ricr.in/api/attendence/allNames
 ```
 
 ### **Using Postman**
-1. Create a POST request to `http://localhost:5000/attendence/mark/RFID001`
+1. Create a POST request to `https://rvsattendance.ricr.in/api/attendence/mark/RFID001`
 2. Set Headers: `Content-Type: application/json`
 3. Send request and check response
 
@@ -281,12 +334,16 @@ curl http://localhost:5000/attendence/allNames
 
 ## Important Notes for NodeMCU
 
-1. **Server IP Address**: Replace `localhost` with your computer's local IP address (e.g., `192.168.1.100`)
-2. **Network**: Ensure NodeMCU and server are on the same network
+1. **Production URL**: Use `https://rvsattendance.ricr.in/api` as the base URL
+2. **SSL/HTTPS**: The server uses HTTPS, ensure your NodeMCU supports SSL connections
 3. **HTTP Method**: Use POST request with empty body to `/attendence/mark/:rfid`
 4. **Response Parsing**: Parse JSON response to determine check-in vs check-out
 5. **Error Handling**: Check HTTP status codes (200/201 = success, 400/403/404 = error)
-6. **Data Fields**: 
+6. **LCD Display**: 
+   - Use `response.lcd.line1` for first line (16 chars max)
+   - Use `response.lcd.line2` for second line (16 chars max)
+   - Both lines are pre-formatted and ready to display
+7. **Data Fields**: 
    - `data.type` will be either "checkIn" or "checkOut"
    - `data.user.fullname` contains teacher name
    - `data.duration` (only for check-out) contains time duration
@@ -296,9 +353,9 @@ curl http://localhost:5000/attendence/allNames
 ## Contact & Support
 
 For issues or questions:
-- Backend Server: Check server logs in terminal
+- Backend Server: Check server logs or API status
 - NodeMCU: Use Serial Monitor (115200 baud rate) for debugging
-- Network Issues: Verify both devices are on same network and server is running
+- Network Issues: Verify NodeMCU has internet connectivity and can reach the API domain
 
 ---
 
